@@ -38,3 +38,14 @@ add_test(
     NAME SensorTest
     COMMAND sensor_test
 )
+target_compile_options(sensor_monitor PRIVATE
+     -Wall
+     -Wextra
+     -Wpedantic
+)
+
+target_compile_options(sensor_test PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+)

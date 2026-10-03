@@ -4,9 +4,7 @@
 class Sensor
 { 
 public:
-    Sensor();
-    void read();
-private:
-     float temperature;
+   virtual ~Sensor() = default;
+      virtual float readTemperature() = 0;
 };
 #endif

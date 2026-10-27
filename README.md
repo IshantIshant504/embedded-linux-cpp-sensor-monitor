@@ -76,7 +76,3 @@ For implementation details, hardware configuration, and software instructions, s
 
 - **STM32 Firmware:** `STM32/README.md`
 - **BeagleBone Black and Embedded Linux:** `BeagleBone/README.md`
-
-## Repository
-
-GitHub: https://github.com/IshantIshant504/embedded-linux-cpp-sensor-monitor

@@ -1,4 +1,5 @@
 #include "sensor_decoder.hpp"
+#include "oled_display.hpp"
 #include <iostream>
 #include <iomanip>
 #include <cstdint>
@@ -14,6 +15,10 @@
 #include <sys/socket.h>
 #include <linux/can.h>
 #include <linux/can/raw.h>
+#include <string>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+
 
 std::atomic<bool> running{true};
 
@@ -66,6 +71,39 @@ int open_can_socket()
 
     return sock;
 }
+int connect_to_ubuntu()
+{
+    int tcp_sock = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (tcp_sock < 0) {
+        perror("TCP socket");
+        return -1;
+    }
+
+    sockaddr_in server_addr{};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(5000);
+
+    if (inet_pton(AF_INET, "192.168.50.3",
+                  &server_addr.sin_addr) != 1) {
+        std::cerr << "Invalid Ubuntu IP address\n";
+        close(tcp_sock);
+        return -1;
+    }
+
+    if (connect(tcp_sock,
+                reinterpret_cast<sockaddr*>(&server_addr),
+                sizeof(server_addr)) < 0) {
+        perror("TCP connect to Ubuntu");
+        close(tcp_sock);
+        return -1;
+    }
+
+    std::cout << "Connected to Ubuntu TCP receiver at "
+              << "192.168.50.3:5000\n";
+
+    return tcp_sock;
+}
 void log_sensor_data(std::ofstream& csv_file,
                      const SensorData& sensor)
 {
@@ -105,8 +143,29 @@ int main()
 std::signal(SIGINT, handle_signal);
 std::signal(SIGTERM, handle_signal);
 
-    int sock = open_can_socket();
+OLED oled;
+bool oled_ready = false;
 
+if (oled.openDevice()) {
+    if (oled.initialize() && oled.clearDisplay()) {
+        oled_ready = true;
+        oled.drawText("STARTING...", 0, 0);
+        std::cout << "OLED initialized successfully.\n";
+    } else {
+        std::cerr << "OLED initialization failed.\n";
+        oled.closeDevice();
+    }
+} else {
+    std::cerr << "OLED unavailable; continuing without display.\n";
+}
+
+    int sock = open_can_socket();
+    int tcp_sock = connect_to_ubuntu();
+
+    if (tcp_sock < 0) {
+        std::cerr << "TCP connection failed. "
+                  << "Continuing with CAN and CSV only.\n";
+    }
 if (sock < 0) {
     return 1;
 }
@@ -163,11 +222,76 @@ if (!decode_sensor_frame(frame, sensor)) {
 }
 
 log_sensor_data(csv_file, sensor);
+
+if (oled_ready) {
+    char line1[22];
+    char line2[22];
+    char line3[22];
+    char line4[22];
+
+    std::snprintf(line1, sizeof(line1),
+                  "TEMP: %.2f C", sensor.temperature_c);
+
+    std::snprintf(line2, sizeof(line2),
+                  "HUM: %.2f %%", sensor.humidity_rh);
+
+    std::snprintf(line3, sizeof(line3),
+                  "PRESS: %.1f HPA", sensor.pressure_hpa);
+
+    std::snprintf(line4, sizeof(line4),
+                  "STATUS: CAN OK");
+
+    oled.clearDisplay();
+
+    oled.drawText(line1, 0, 0);
+    oled.drawText(line2, 0, 1);
+    oled.drawText(line3, 0, 2);
+    oled.drawText(line4, 0, 3);
+}
+
+if (tcp_sock >= 0) {
+    std::time_t now = std::time(nullptr);
+    std::tm* local_time = std::localtime(&now);
+
+    if (local_time != nullptr) {
+        char timestamp[32];
+
+        std::strftime(timestamp, sizeof(timestamp),
+                      "%Y-%m-%d %H:%M:%S", local_time);
+
+        char message[256];
+
+        int length = std::snprintf(
+            message, sizeof(message),
+            "%s,Temperature_C=%.2f,Pressure_hPa=%.2f,Humidity_RH=%.2f\n",
+            timestamp,
+            sensor.temperature_c,
+            sensor.pressure_hpa,
+            sensor.humidity_rh
+        );
+
+        if (length > 0 &&
+            static_cast<std::size_t>(length) < sizeof(message)) {
+            ssize_t sent = send(tcp_sock, message,
+                                static_cast<std::size_t>(length),
+                                MSG_NOSIGNAL);
+
+            if (sent < 0) {
+                perror("TCP send");
+                close(tcp_sock);
+                tcp_sock = -1;
+            }
+        }
+    }
+}
 }
 
     
 
     close(sock);
+    if (tcp_sock >=0) {
+      close(tcp_sock);
+}
     return 0;
 }
 

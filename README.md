@@ -9,8 +9,8 @@ On the BeagleBone Black, a C++ application receives CAN frames through Linux Soc
 The project demonstrates the integration of microcontroller firmware, communication protocols, Linux-based embedded software, peripheral interfaces, and network communication in a single system.
 
 ## Complete Project Setup
+<img width="5712" height="4284" alt="Overall_Project_Setup_Photo" src="https://github.com/user-attachments/assets/9bfebf25-ac1e-44a3-8aba-c890c1272368" />
 
-![Complete hardware setup of the STM32, BME280 sensor, CAN transceivers, BeagleBone Black, and OLED display](images/complete_project_setup.jpg)
 
 *Complete hardware assembly showing the main components of the sensor monitoring system.*
 

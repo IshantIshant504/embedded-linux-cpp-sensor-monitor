@@ -205,6 +205,33 @@ The actual filename and format should match the implementation in `bme280_can_re
 - Ensure that CMake and a compatible C++ compiler are installed.
 - Review compiler messages for missing source files or incompatible language features.
 
+## Practical Notes and Lessons Learned
+
+### 1. CAN Transceiver Wiring
+
+One of the challenges during hardware setup was understanding the correct connections between the STM32 and the CAN transceiver.
+
+- Connect the STM32 CAN TX signal to the transceiver's TXD pin.
+- Connect the STM32 CAN RX signal to the transceiver's RXD pin.
+- Connect CANH to CANH and CANL to CANL between the CAN devices.
+
+**Lesson learned:** Carefully check the pin labels and module datasheets before making connections. TXD/RXD are logic-side signals, whereas CANH/CANL are the physical CAN bus connections.
+
+### 2. STM32 Debug Output in Tera Term
+
+During development, I struggled to display the complete loop information in Tera Term. I discovered that the following BSP COM initialization code affected the behavior of my application:
+
+```c
+if (BSP_COM_Init(COM1, &BspCOMInit) != BSP_ERROR_NONE)
+{
+    Error_Handler();
+}
+```
+
+Commenting out this code changed the application's behavior and helped me proceed with debugging.
+
+**Lesson learned:** Understanding the board's BSP COM initialization and the serial interface used for debugging is important when troubleshooting missing or incomplete output in Tera Term.
+
 ## Future Improvements
 
 - Improve TCP reconnection and error handling.

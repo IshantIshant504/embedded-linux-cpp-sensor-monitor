@@ -1,163 +1,214 @@
-# Embedded Linux C++ Sensor Monitoring System
+# BME280 Embedded Linux CAN Sensor Monitor
 
 ## Overview
 
-This project demonstrates an embedded sensor monitoring system integrating an STM32 microcontroller, a BeagleBone Black running Linux, and an Ubuntu-based TCP receiver.
+This project implements the Embedded Linux component of a sensor monitoring system. A C++ application running on the BeagleBone Black receives BME280 sensor measurements from an STM32 microcontroller over CAN.
 
-A BME280 sensor measures temperature, pressure, and relative humidity. The STM32 reads sensor measurements over I2C and transmits the data over a CAN bus. The BeagleBone Black receives the CAN frames through Linux SocketCAN and processes them using C++.
+The application uses Linux SocketCAN to receive and filter CAN frames, decodes the sensor measurements, displays timestamped readings in the terminal, records measurements in a CSV file, and displays the current readings on an SSD1306 OLED.
 
-The BeagleBone application decodes the sensor data, displays measurements on an OLED, records readings in a CSV file, and forwards the data to an Ubuntu system over TCP.
+The application also forwards sensor data to an Ubuntu system through a TCP connection.
 
-## System Architecture
+## Architecture
 
 ```text
-BME280 Sensor
-     |
-     | I2C
-     v
-STM32 Nucleo-G431RB
-     |
-     | CAN Frame (ID: 0x123)
-     v
-CAN Bus
-     |
-     v
+STM32 + BME280
+      |
+      | CAN (ID: 0x123)
+      v
 BeagleBone Black
-     |
-     | Linux SocketCAN
-     v
+      |
+      v
+Linux SocketCAN
+      |
+      v
 C++ CAN Receiver
-     |
-     +----> Sensor Data Decoder
-     |
-     +----> Timestamped Terminal Output
-     |
-     +----> CSV Data Logging
-     |
-     +----> SSD1306 OLED Display
-     |
-     | TCP/IP
-     v
-Ubuntu Linux
-     |
-     v
-C++ TCP Receiver
+      |
+      +----> Sensor Data Decoder
+      |
+      +----> Timestamped Terminal Output
+      |
+      +----> CSV Logging
+      |
+      +----> SSD1306 OLED
+      |
+      | TCP/IP
+      v
+Ubuntu TCP Receiver
 ```
 
-## Key Features
+## Features
 
-- BME280 environmental sensor integration.
-- I2C communication between the sensor and STM32.
-- CAN communication between the STM32 and BeagleBone Black.
-- Linux SocketCAN-based CAN frame reception.
-- C++ sensor data decoding.
-- Timestamped temperature, pressure, and humidity output.
-- CSV-based sensor measurement logging.
-- SSD1306 OLED display integration.
-- TCP communication between the BeagleBone Black and Ubuntu.
+- Linux SocketCAN communication.
+- CAN frame filtering and validation.
+- Temperature, pressure, and humidity decoding.
+- Timestamped terminal output.
+- CSV sensor-data logging.
+- SSD1306 OLED integration.
+- TCP transmission to Ubuntu.
+- Graceful shutdown handling.
 
-## Hardware Requirements
+## Technologies
 
-- STM32 Nucleo-G431RB development board.
-- BME280 environmental sensor module.
-- Compatible CAN transceiver for the STM32.
-- BeagleBone Black Rev C.
-- Compatible CAN interface for the BeagleBone Black.
-- SSD1306 OLED display, 128 × 32 pixels.
-- CAN bus wiring and termination resistors.
-- Suitable USB cables and power supplies.
+- C++
+- Embedded Linux / Debian
+- Linux SocketCAN
+- Linux I2C interface
+- TCP/IP sockets
+- STM32
+- BeagleBone Black
+- CAN bus
+- SSD1306 OLED
+- CMake
+- CSV logging
 
-**Hardware note:** Use compatible CAN transceivers and matching CAN communication settings. Do not connect CANH and CANL directly to STM32 microcontroller logic pins.
+## Source Files
 
-## Software and Technologies
-
-| Technology | Purpose |
+| File | Purpose |
 |---|---|
-| Embedded C/C++ | STM32 firmware and Linux application development |
-| STM32CubeIDE | STM32 firmware development |
-| I2C | BME280 and OLED communication |
-| CAN | Communication between embedded devices |
-| Linux / Debian | BeagleBone operating system |
-| SocketCAN | Linux CAN interface |
-| C++ | Sensor decoding and Linux applications |
-| CMake | BeagleBone application build configuration |
-| TCP/IP sockets | Sensor-data transmission to Ubuntu |
-| CSV | Sensor data logging |
-| Git and GitHub | Version control and project documentation |
+| `bme280_can_receiver.cpp` | Receives CAN data, logs measurements, updates the OLED, and transmits data over TCP. |
+| `sensor_decoder.cpp` | Decodes sensor values from CAN frames. |
+| `sensor_decoder.hpp` | Declares sensor-decoding functions and data structures. |
+| `oled_display.cpp` | Implements OLED communication and display functions. |
+| `oled_display.hpp` | Declares the OLED interface used by the receiver. |
+| `CMakeLists.txt` | Configures the C++ build. |
 
-## CAN Communication Protocol
+## Hardware
 
-The STM32 transmits a standard CAN data frame using identifier `0x123` and an 8-byte payload.
+- BeagleBone Black Rev C.
+- CAN interface connected to the STM32 CAN bus.
+- SSD1306 OLED display, 128 × 32 pixels.
+- CAN bus termination resistors.
+- Suitable power supplies and wiring.
 
-| Payload Bytes | Measurement | Encoding |
-|---|---|---|
-| 0–1 | Temperature | Signed 16-bit integer, scaled by 100 |
-| 2–5 | Pressure | 32-bit value in pascals |
-| 6–7 | Relative humidity | Unsigned 16-bit integer, scaled by 100 |
+### OLED Connections
 
-The Linux receiver decodes the measurements into temperature in degrees Celsius, pressure in hectopascals, and relative humidity in percent.
+| OLED Pin | BeagleBone Black Pin |
+|---|---|
+| VCC | P9_3 (3.3 V) |
+| GND | P9_1 |
+| SDA | P9_18 |
+| SCL | P9_17 |
 
-The transmitter and receiver must use matching byte order, signedness, scaling, and pressure units.
+The OLED uses the I2C interface exposed through `/dev/i2c-1`. The CAN connections on P9_19 and P9_20 must remain unchanged.
 
-## Repository Structure
+## CAN Configuration
+
+The application uses the Linux CAN interface `can0` and filters for CAN identifier `0x123`.
+
+The configured bitrate is 125000 bits per second.
+
+Example configuration:
+
+```bash
+sudo ip link set can0 down
+sudo ip link set can0 type can bitrate 125000 restart-ms 1000
+sudo ip link set can0 up
+```
+
+Ensure that the CAN interface and physical bus are configured correctly before starting the application.
+
+## Build
+
+Install the required build tools if necessary:
+
+```bash
+sudo apt update
+sudo apt install build-essential cmake
+```
+
+Navigate to the project directory:
+
+```bash
+cd ~/bme280-can-project
+```
+
+Configure the project:
+
+```bash
+cmake -S . -B build
+```
+
+Build the receiver:
+
+```bash
+cmake --build build
+```
+
+The build configuration must include the following source files:
+
+- `bme280_can_receiver.cpp`
+- `sensor_decoder.cpp`
+- `oled_display.cpp`
+
+## Run
+
+Start the Ubuntu TCP receiver first, then configure the BeagleBone CAN interface.
+
+Run the BeagleBone application:
+
+```bash
+sudo ./build/bme280_can_receiver
+```
+
+Press `Ctrl+C` to stop the application.
+
+## TCP Communication
+
+The BeagleBone Black acts as the TCP client. The Ubuntu system acts as the TCP server.
+
+The TCP client functionality is implemented in `bme280_can_receiver.cpp`.
+
+The application connects to the configured Ubuntu IP address on port `5000`.
+
+The Ubuntu receiver source is `sensor_tcp_receiver.cpp`. It must be running and listening on the expected port before the BeagleBone attempts to transmit data.
+
+The Ubuntu server address must match the address configured in the BeagleBone application.
+
+## Data Logging
+
+The receiver records decoded sensor measurements in a CSV file.
+
+The CSV column format is:
 
 ```text
-embedded-linux-cpp-sensor-monitor/
-|
-+-- README.md
-|
-+-- STM32/
-|   +-- README.md
-|   +-- Core/
-|   +-- Drivers/
-|   +-- BME280.ioc
-|   +-- STM32G431RBTX_FLASH.ld
-|
-+-- BeagleBone/
-|   +-- README.md
-|   +-- CMakeLists.txt
-|   +-- bme280_can_receiver.cpp
-|   +-- sensor_decoder.cpp
-|   +-- sensor_decoder.hpp
-|   +-- oled_display.cpp
-|   +-- oled_display.hpp
-|
-+-- Ubuntu/
-    +-- README.md
-    +-- sensor_tcp_receiver.cpp
+Timestamp,Temperature_C,Pressure_hPa,Humidity_RH
 ```
 
-The structure above describes the intended organization. Adjust directory names to match the actual repository.
+The actual filename and format should match the implementation in `bme280_can_receiver.cpp`.
 
-## Build and Usage
+## Troubleshooting
 
-The STM32 firmware is built and flashed using STM32CubeIDE.
+### CAN Issues
 
-The BeagleBone application is built using CMake and a compatible C++ compiler. It requires the configured CAN interface and OLED hardware.
+- Confirm that `can0` exists and is active.
+- Verify the bitrate and CAN identifier.
+- Check CAN wiring and termination.
+- Review application output for socket errors.
 
-The Ubuntu TCP receiver listens for sensor data on port `5000`. Start the TCP receiver before running the BeagleBone application.
+### OLED Issues
 
-See the STM32, BeagleBone, and Ubuntu README files for component-specific instructions.
+- Check power and ground connections.
+- Verify SDA and SCL wiring.
+- Confirm that the I2C interface is enabled.
+- Check access to `/dev/i2c-1`.
 
-## Project Goals
+### TCP Issues
 
-This project demonstrates practical experience with:
+- Confirm that the Ubuntu TCP receiver is running.
+- Verify the Ubuntu IP address and TCP port.
+- Check network connectivity and firewall settings.
+- Review connection errors in the receiver output.
 
-- Microcontroller firmware development.
-- Environmental sensor integration.
-- I2C and CAN communication.
-- Embedded Linux application development.
-- Linux SocketCAN.
-- C++ programming and sensor-data decoding.
-- OLED display integration.
-- TCP/IP networking.
-- CSV data logging.
-- CMake-based builds.
+### Build Issues
+
+- Verify that all required source and header files are present.
+- Ensure that CMake and a compatible C++ compiler are installed.
+- Review compiler messages for missing source files or incompatible language features.
 
 ## Future Improvements
 
 - Improve TCP reconnection and error handling.
 - Add configurable network settings.
-- Improve structured logging and diagnostics.
-- Add sensor-data visualization.
+- Improve structured logging.
+- Add additional sensor support.
 - Expand automated validation and integration testing.

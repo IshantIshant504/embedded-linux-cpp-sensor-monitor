@@ -25,22 +25,23 @@ target_compile_options(bme280_can_receiver PRIVATE
     -Wall -Wextra
 )
 
-add_executable(test_sensor_decoder
-    test_sensor_decoder.cpp
-)
+include(CTest)
 
-target_link_libraries(test_sensor_decoder
-    PRIVATE sensor_decoder
-)
+if(BUILD_TESTING)
+    add_executable(test_sensor_decoder
+        test_sensor_decoder.cpp
+    )
 
-target_compile_options(test_sensor_decoder PRIVATE
-    -Wall -Wextra
-)
+    target_link_libraries(test_sensor_decoder
+        PRIVATE sensor_decoder
+    )
 
-enable_testing()
+    target_compile_options(test_sensor_decoder PRIVATE
+        -Wall -Wextra
+    )
 
-add_test(
-    NAME SensorDecoderTests
-    COMMAND test_sensor_decoder
-)
-
+    add_test(
+        NAME SensorDecoderTests
+        COMMAND test_sensor_decoder
+    )
+endif()
